@@ -1,0 +1,188 @@
+name: mobility-app
+
+services:
+  # # # # # # Databases # # # # # #
+  account-db:
+    image: postgres:latest
+    container_name: account-management-db
+    ports: ["4567:5432"]
+    environment:
+      POSTGRES_USER: theodore
+      POSTGRES_PASSWORD: theo7272
+      POSTGRES_DB: accounts-db
+    volumes:
+      - account_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U theodore -d accounts-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [mobility-net]
+
+  auth-db:
+    image: postgres:latest
+    container_name: auth-server-db
+    ports: ["6543:5432"]
+    environment:
+      POSTGRES_USER: theodore
+      POSTGRES_PASSWORD: theo7272
+      POSTGRES_DB: auth-db
+    volumes:
+      - auth_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U theodore -d auth-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [mobility-net]
+
+  racing-db:
+    image: postgres:latest
+    container_name: racing-core-db
+    ports: ["9876:5432"]
+    environment:
+      POSTGRES_USER: theodore
+      POSTGRES_PASSWORD: theo7272
+      POSTGRES_DB: racing-db
+    volumes:
+      - racing_postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U theodore -d racing-db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [mobility-net]
+
+  # # # # # # # Redis # # # # # #
+  redis:
+    image: redis:7-alpine
+    container_name: redis-cache
+    ports: ["6379:6379"]
+    volumes:
+      - ../mobility-common/cache/users.acl:/usr/local/etc/redis/users.acl:ro
+    command: >
+      redis-server
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --aclfile /usr/local/etc/redis/users.acl
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks: [mobility-net]
+
+  # # # # # # # RabbitMQ # # # # # #
+  rabbitmq:
+    image: rabbitmq:3.13.7-management
+    container_name: rabbit-queue
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-mobilityqueueuser}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS:-Strong-password1}
+      RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-/mobility}
+      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: -rabbitmq_management load_definitions "/etc/rabbitmq/definitions.json"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ../mobility-common/rabbitmq-common/rabbitmq/definitions.json:/etc/rabbitmq/definitions.json:ro
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    deploy:
+      resources:
+        limits:   { memory: 512M }
+        reservations: { memory: 256M }
+    restart: unless-stopped
+    networks: [mobility-net]
+
+  # # # # # # # Microservices # # # # # #
+  account-management:
+    build:
+      context: ..
+      dockerfile: account-management/Dockerfile
+    image: mobility-app/account-management:local
+    container_name: account-management-service
+    depends_on:
+      account-db: { condition: service_healthy }
+      redis:      { condition: service_healthy }
+      rabbitmq:   { condition: service_healthy }
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DATABASE_HOST: account-db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: accounts-db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq                 
+      RABBITMQ_PORT: 5672
+      AUTH_SERVER_URL: mobility-authserver
+    ports: ["8085:8085"]
+    restart: unless-stopped
+    networks: [mobility-net]
+
+  mobility-authserver:
+    build:
+      context: ..
+      dockerfile: mobility-authserver/Dockerfile
+    image: mobility-app/mobility-authserver:local
+    container_name: auth-server-service
+    depends_on:
+      auth-db: { condition: service_healthy }
+      rabbitmq: { condition: service_healthy }
+    environment:
+      SPRING_PROFILES_ACTIVE: local  
+      RABBITMQ_HOST: rabbitmq                 
+      RABBITMQ_PORT: 5672                     
+      DATABASE_HOST: auth-db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: auth-db
+      AUTH_SERVER_URL: mobility-authserver
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    restart: unless-stopped
+    networks: [mobility-net]
+
+  racing-core:
+    build:
+      context: ..
+      dockerfile: racing-core/Dockerfile
+    image: mobility-app/racing-core:local
+    container_name: racing-core-service
+    depends_on:
+      racing-db: { condition: service_healthy }
+      redis:     { condition: service_healthy }
+      rabbitmq:  { condition: service_healthy }
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      DATABASE_HOST: racing-db
+      DATABASE_PORT: 5432
+      DATABASE_NAME: racing-db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      AUTH_SERVER_URL: mobility-authserver
+      ACCOUNT_MANAGEMENT_URL: account-management
+    ports: ["8086:8086"]
+    restart: unless-stopped
+    networks: [mobility-net]
+
+volumes:
+  account_postgres_data:
+  auth_postgres_data:
+  racing_postgres_data:
+  rabbitmq_data:
+
+networks:
+  mobility-net:
+    driver: bridge
