@@ -177,6 +177,26 @@ services:
     restart: unless-stopped
     networks: [mobility-net]
 
+  email-service:
+    build:
+      context: ..
+      dockerfile: email-service/Dockerfile
+    image: mobility-app/email-service:local
+    container_name: email-service
+    depends_on:
+      rabbitmq:  { condition: service_healthy }
+    environment:
+      SPRING_PROFILES_ACTIVE: local
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_PORT: 5672
+      RESEND_API_KEY: REPLACE_THIS_WITH_YOUR_KEY
+      EMAIL_FROM: REPLACE_THIS_WITH_YOUR_FROM_EMAIL
+    ports:
+      - "8083:8083"
+      - "8093:8093"
+    restart: unless-stopped
+    networks: [mobility-net]  
+
 volumes:
   account_postgres_data:
   auth_postgres_data:
