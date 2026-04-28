@@ -6,7 +6,7 @@ service-to-service calls, **RabbitMQ** for async workflows, and the
 **orchistration saga pattern** with compensating transactions for distributed rollbacks
 across service boundaries.
 
-**Built with Java 21 · Spring Boot 3.5 · Spring Authorization Server · Go · PostgreSQL · Redis · RabbitMQ**
+**Built with Java 21 · Spring Boot 3.5 · Spring Authorization Server · PostgreSQL · Redis · RabbitMQ**
 
 > **Status:** Fully functional portfolio project. `docker compose up` brings up
 > the entire platform locally. See [NOTICE.md](./NOTICE.md) for usage terms.
@@ -41,14 +41,12 @@ flowchart LR
 | **auth-server** | OAuth 2.1 + OIDC authorization server. Issues JWTs, manages users, roles, and OAuth clients. It is a gRPC server for internal calls and RabbitMQ listener for saga compensations. | [→](https://github.com/mobility-systems/auth-server) |
 | **account-management** | User and organization registration, account confirmation flow. The orchistration saga pattern is used for some of the processes e.g. user registration, to ensure data integrity across the auth server and the account management. Also for the email confirmation process a hybrid JWT token is used so it leverages both the stateless and the stateful states advantages. | [→](https://github.com/mobility-systems/account-management) |
 | **racing-core** | Domain service for cars, drivers, laps, tracks.  The orchistration saga pattern is used for some of the processes e.g. driver registration, to ensure data integrity to the auth server. | [→](https://github.com/mobility-systems/racing-core) |
-| **email-service** | Go service. RabbitMQ consumer that sends transactional emails (confirmation tokens, notifications) via Resend. | [→](https://github.com/mobility-systems/email-service) |
+| **email-service** | RabbitMQ consumer that sends transactional emails (confirmation tokens, notifications) via Resend. | [→](https://github.com/mobility-systems/email-service) |
 | **mobility-common** | Shared Maven library: gRPC protos, RabbitMQ queue definitions, saga orchestrator, common exceptions, DTOs, Util classes e.g. ULID generator. | [→](https://github.com/mobility-systems/mobility-common) |
 
 ## Tech stack
 
-**Java services:** Java 21 · Spring Boot 3.5 · Spring Authorization Server · Spring Security · Spring Data JPA · Liquibase · MapStruct · gRPC (net.devh starter) · Spring AOP · Spring Cache · Bean Validation · Swagger · Testcontainers
-
-**Go service:** Go · RabbitMQ client · Resend API
+**Java services:** Java 21 · Spring Boot 3.5 · Spring Authorization Server · Spring Security · Spring Data JPA · Liquibase · MapStruct · gRPC (net.devh starter) · Spring AOP · Spring Cache · Bean Validation · Swagger · Testcontainers · Resend API
 
 **Infrastructure:** PostgreSQL · Redis · RabbitMQ · Nginx · Docker Compose · Maven (multi-module)
 

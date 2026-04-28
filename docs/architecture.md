@@ -22,7 +22,7 @@ flowchart TB
         Auth[auth-server<br/>OAuth 2.1 + OIDC]
         AM[account-management]
         RC[racing-core]
-        Email[email-service<br/>Go]
+        Email[email-service<br/>Java / Spring Boot]
  
         MQ{{RabbitMQ}}
  
@@ -122,13 +122,13 @@ role set in auth-server.
 
 ### <font color="49BF9B">**email-service**</font>
 
-A deliberately small Go service that listens on an email queue and delivers
-transactional emails via the Resend API. It holds no database and no cache —
+A service that listens on an email queue and delivers
+transactional emails via the Resend API. It holds no database and no cache so
 if the process restarts, RabbitMQ's delivery guarantees ensure nothing is lost.
 
-The language choice (Go rather than Java) is intentional — it exercises the
-platform's polyglot message contracts and demonstrates that service boundaries
-really are decoupled by the message bus.
+**Depends on:**
+
+- RabbitMQ for sending emails
 
 ## <font color="D4A357">Communication patterns</font>
 
@@ -137,9 +137,9 @@ The platform uses three communication patterns, each chosen for specific propert
 ### <font color="A19FD4">• External HTTP (REST)</font>
 
 External clients interact with the platform over HTTPS. Account-management and
-racing-core expose REST endpoints directly; external clients call them as
+racing-core expose REST endpoints directly. External clients call them as
 OAuth 2.1 resource servers and attach a JWT access token on every request.
-The token is validated locally using the auth-server's published JWKS — no
+The token is validated locally using the auth-server's published JWKS. No
 round-trip to auth-server is required per request.
 
 OpenAPI/Swagger documentation is generated automatically via springdoc-openapi
@@ -224,7 +224,7 @@ redemption). This is a hybrid design leveraging strengths of both stateless and 
 ## <font color="D4A357">Shared code</font>
 
 The `mobility-common` library is a multi-module Maven project consumed by all
-three Java services:
+4 Java services:
 
 - **`proto-common`**: gRPC `.proto` files and generated Java sources. One
   contract shared by clients and server guarantees compatibility.
